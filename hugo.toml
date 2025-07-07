@@ -1,0 +1,11 @@
+baseURL = 'https://popefeed.com/'
+defaultContentLanguage = 'en'
+title = 'PopeFeed'
+
+[params]
+  apiBaseURL = 'http://localhost:8000'
+
+[markup]
+  [markup.goldmark]
+    [markup.goldmark.renderer]
+      unsafe = true

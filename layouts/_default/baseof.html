@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="{{ .Site.Language.Lang }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ if .Title }}{{ .Title }} - {{ end }}{{ .Site.Title }}</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'accent': '#6366F1',
+                        'text-primary': '#0F172A',
+                        'text-secondary': '#64748B',
+                        'text-light': '#94A3B8',
+                        'border-light': '#F1F5F9',
+                        'bg-minimal': '#FEFEFE'
+                    },
+                    fontFamily: {
+                        'sans': ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif']
+                    },
+                    fontSize: {
+                        'xs': ['0.75rem', { lineHeight: '1.5' }],
+                        'sm': ['0.875rem', { lineHeight: '1.6' }],
+                        'base': ['1rem', { lineHeight: '1.7' }],
+                        'lg': ['1.125rem', { lineHeight: '1.7' }],
+                        'xl': ['1.25rem', { lineHeight: '1.6' }],
+                        '2xl': ['1.5rem', { lineHeight: '1.5' }],
+                        '3xl': ['1.875rem', { lineHeight: '1.4' }]
+                    },
+                    spacing: {
+                        '18': '4.5rem',
+                        '88': '22rem'
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <style>
+        body {
+            font-feature-settings: 'kern' 1, 'liga' 1, 'calt' 1;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        
+        .post-card {
+            border: 1px solid #F1F5F9;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .post-card:hover {
+            border-color: #E2E8F0;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+        
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        @keyframes fadeIn {
+            from { 
+                opacity: 0; 
+                transform: translateY(8px); 
+            }
+            to { 
+                opacity: 1; 
+                transform: translateY(0); 
+            }
+        }
+        
+        .minimal-button {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .minimal-button:hover {
+            background-color: #F8FAFC;
+        }
+        
+        .minimal-button:active {
+            transform: translateY(1px);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans">
+    <main>
+        {{ block "main" . }}{{ end }}
+    </main>
+    
+    <!-- Posts API JavaScript -->
+    <script>
+        class PostsFeed {
+            constructor() {
+                this.apiBaseUrl = '{{ .Site.Params.apiBaseURL | default "http://localhost:8000" }}';
+                this.currentPage = 1;
+                this.isLoading = false;
+                this.hasMore = true;
+                this.posts = [];
+                
+                this.initializeElements();
+                this.loadInitialPosts();
+            }
+            
+            initializeElements() {
+                this.feedContainer = document.getElementById('posts-feed');
+                this.loadMoreBtn = document.getElementById('load-more-btn');
+                this.loadingIndicator = document.getElementById('loading-indicator');
+                
+                if (this.loadMoreBtn) {
+                    this.loadMoreBtn.addEventListener('click', () => this.loadMorePosts());
+                }
+            }
+            
+            async loadInitialPosts() {
+                await this.loadPosts(1);
+            }
+            
+            async loadMorePosts() {
+                if (this.isLoading || !this.hasMore) return;
+                
+                this.currentPage++;
+                await this.loadPosts(this.currentPage);
+            }
+            
+            async loadPosts(page) {
+                if (this.isLoading) return;
+                
+                this.isLoading = true;
+                this.showLoading();
+                
+                try {
+                    const response = await fetch(`${this.apiBaseUrl}/posts/page=${page}.json`);
+                    if (!response.ok) throw new Error('Failed to load posts');
+                    
+                    const data = await response.json();
+                    
+                    if (page === 1) {
+                        this.posts = data.posts;
+                        this.renderAllPosts();
+                    } else {
+                        this.posts.push(...data.posts);
+                        this.renderNewPosts(data.posts);
+                    }
+                    
+                    this.hasMore = data.meta.has_next;
+                    this.updateLoadMoreButton();
+                    
+                } catch (error) {
+                    console.error('Error loading posts:', error);
+                    this.showError();
+                } finally {
+                    this.isLoading = false;
+                    this.hideLoading();
+                }
+            }
+            
+            renderAllPosts() {
+                if (!this.feedContainer) return;
+                
+                this.feedContainer.innerHTML = '';
+                this.posts.forEach(post => {
+                    const postElement = this.createPostElement(post);
+                    this.feedContainer.appendChild(postElement);
+                });
+            }
+            
+            renderNewPosts(newPosts) {
+                if (!this.feedContainer) return;
+                
+                newPosts.forEach(post => {
+                    const postElement = this.createPostElement(post);
+                    postElement.classList.add('fade-in');
+                    this.feedContainer.appendChild(postElement);
+                });
+            }
+            
+            createPostElement(post) {
+                const article = document.createElement('article');
+                article.className = 'post-card bg-white rounded-2xl p-8 mb-6';
+                
+                const formattedDate = this.formatDate(post.document.date);
+                
+                article.innerHTML = `
+                    <div class="flex items-start space-x-6">
+                        <div class="flex-shrink-0">
+                            <img src="${post.pope.avatar}" alt="${post.pope.name}" class="w-14 h-14 rounded-full ring-2 ring-border-light">
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-baseline space-x-3 mb-4">
+                                <h3 class="font-semibold text-text-primary text-lg">${post.pope.name}</h3>
+                                <span class="text-text-light text-sm">@${post.pope.handle}</span>
+                                <span class="text-text-light">·</span>
+                                <time class="text-text-light text-sm">${formattedDate}</time>
+                            </div>
+                            
+                            <div class="space-y-4">
+                                <h4 class="font-medium text-text-primary text-xl leading-relaxed">${post.document.title}</h4>
+                                <p class="text-text-secondary text-base leading-relaxed">${post.document.excerpt}</p>
+                                
+                                <div class="flex items-center justify-between pt-4">
+                                    <div class="flex items-center space-x-4">
+                                        <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-slate-50 text-text-secondary border border-border-light">
+                                            ${post.document.type}
+                                        </span>
+                                        <span class="text-text-light text-sm">
+                                            ${post.document.language_count} languages
+                                        </span>
+                                    </div>
+                                    ${post.document.pdf_available ? `
+                                        <button class="minimal-button inline-flex items-center text-accent font-medium text-sm px-4 py-2 rounded-lg border border-transparent hover:border-accent/20">
+                                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                            </svg>
+                                            View Document
+                                        </button>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                return article;
+            }
+            
+            formatDate(dateString) {
+                if (!dateString) return '';
+                
+                try {
+                    const date = new Date(dateString);
+                    return date.toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric'
+                    });
+                } catch (error) {
+                    return dateString;
+                }
+            }
+            
+            updateLoadMoreButton() {
+                if (!this.loadMoreBtn) return;
+                
+                if (this.hasMore) {
+                    this.loadMoreBtn.textContent = 'Load more posts';
+                    this.loadMoreBtn.style.display = 'block';
+                } else {
+                    this.loadMoreBtn.style.display = 'none';
+                }
+            }
+            
+            showLoading() {
+                if (this.loadingIndicator) {
+                    this.loadingIndicator.style.display = 'block';
+                }
+                if (this.loadMoreBtn) {
+                    this.loadMoreBtn.classList.add('loading');
+                    this.loadMoreBtn.textContent = 'Loading...';
+                }
+            }
+            
+            hideLoading() {
+                if (this.loadingIndicator) {
+                    this.loadingIndicator.style.display = 'none';
+                }
+                if (this.loadMoreBtn) {
+                    this.loadMoreBtn.classList.remove('loading');
+                }
+            }
+            
+            showError() {
+                if (this.feedContainer) {
+                    const errorElement = document.createElement('div');
+                    errorElement.className = 'p-4 text-center text-gray-500';
+                    errorElement.textContent = 'Error loading posts. Please try again.';
+                    this.feedContainer.appendChild(errorElement);
+                }
+            }
+        }
+        
+        // Initialize when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            new PostsFeed();
+        });
+    </script>
+</body>
+</html>
