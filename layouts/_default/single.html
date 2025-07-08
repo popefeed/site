@@ -4,9 +4,9 @@
         <div class="flex items-center justify-between">
             <div class="flex items-center space-x-3">
                 <i class="fas fa-cross text-vatican-gold text-2xl"></i>
-                <h1 class="text-2xl font-serif font-bold text-white">PopeFeed</h1>
+                <h1 class="text-2xl font-serif font-bold text-white">Pope Feed</h1>
             </div>
-            
+         
             <!-- Language Switcher -->
             <div class="relative">
                 <select onchange="switchLanguage(this.value)" class="bg-white/10 text-white border border-white/20 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-vatican-gold">
@@ -23,44 +23,262 @@
 {{ end }}
 
 {{ define "main" }}
-<div class="container mx-auto px-4 py-8">
-    <article class="max-w-4xl mx-auto bg-white rounded-xl papal-shadow p-8">
-        <header class="mb-8">
-            <h1 class="text-4xl font-serif font-bold text-vatican-blue mb-4">{{ .Title }}</h1>
-            <div class="flex items-center space-x-4 text-gray-600">
-                <span class="flex items-center">
-                    <i class="fas fa-calendar-alt mr-2"></i>
-                    {{ .Date.Format "January 2, 2006" }}
-                </span>
-                <span class="flex items-center">
-                    <i class="fas fa-user mr-2"></i>
-                    {{ .Params.pope | default "Pope Francis" }}
-                </span>
-                <span class="flex items-center">
-                    <i class="fas fa-tag mr-2"></i>
-                    {{ .Params.document_type | default "Encyclical" }}
-                </span>
-            </div>
-        </header>
-        
-        <div class="prose prose-lg max-w-none">
-            {{ .Content }}
-        </div>
-        
-        <!-- PDF Viewer Placeholder -->
-        <div class="mt-8 bg-gray-100 rounded-lg p-6">
-            <h3 class="text-xl font-serif font-bold text-vatican-blue mb-4">Document PDF</h3>
-            <div class="bg-white rounded-lg p-4 text-center">
-                <i class="fas fa-file-pdf text-6xl text-vatican-red mb-4"></i>
-                <p class="text-gray-600">PDF viewer will be integrated here</p>
-                <button class="mt-4 bg-vatican-blue text-white px-6 py-2 rounded-lg hover:bg-vatican-blue/90 transition-colors">
-                    <i class="fas fa-download mr-2"></i>
-                    Download PDF
-                </button>
+{{ $useRemoteData := .Site.Params.use_remote_data | default false }}
+{{ $documentData := dict }}
+
+{{ if $useRemoteData }}
+  <!-- Try to fetch the document data from API -->
+  {{ $documentId := .Params.document_id | default .File.ContentBaseName }}
+  {{ if $documentId }}
+    {{ $documentURL := printf "%s/documents/%s.json" .Site.Params.apiBaseURL $documentId }}
+    {{ $documentResult := try (resources.GetRemote $documentURL) }}
+    {{ if $documentResult.Value }}
+      {{ $documentData = $documentResult.Value | transform.Unmarshal }}
+    {{ end }}
+  {{ end }}
+{{ end }}
+
+<div class="min-h-screen bg-bg-minimal">
+    <!-- Document Header -->
+    <header class="bg-white/80 backdrop-blur-sm border-b border-border-light sticky top-0 z-10">
+        <div class="max-w-4xl mx-auto px-6 py-6">
+            <div class="flex items-center space-x-4 mb-4">
+                <a href="/" class="text-text-light hover:text-accent transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                    </svg>
+                </a>
+                <h1 class="text-xl font-medium text-text-primary">{{ .Site.Params.site_title | default "Pope Feed" }}</h1>
             </div>
         </div>
-    </article>
+    </header>
+
+    <div class="max-w-4xl mx-auto px-6 py-12">
+        <article class="bg-white rounded-2xl p-8 mb-8">
+            <!-- Document Header -->
+            <header class="mb-8 pb-8 border-b border-border-light">
+                {{ if and $documentData $documentData.title }}
+                <h1 class="text-3xl font-bold text-text-primary mb-6 leading-tight">{{ $documentData.title }}</h1>
+                {{ else }}
+                <h1 class="text-3xl font-bold text-text-primary mb-6 leading-tight">{{ .Title }}</h1>
+                {{ end }}
+                
+                <div class="flex flex-wrap items-center gap-4 text-sm text-text-light">
+                    {{ if and $documentData $documentData.date }}
+                    <span class="flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                        </svg>
+                        {{ $documentData.date }}
+                    </span>
+                    {{ else }}
+                    <span class="flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                        </svg>
+                        {{ .Date.Format "2006-01-02" }}
+                    </span>
+                    {{ end }}
+                    
+                    {{ if and $documentData $documentData.type }}
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-text-secondary border border-border-light">
+                        {{ $documentData.type }}
+                    </span>
+                    {{ else if .Params.document_type }}
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-text-secondary border border-border-light">
+                        {{ .Params.document_type }}
+                    </span>
+                    {{ end }}
+                    
+                    {{ if and $documentData $documentData.pope_id }}
+                    <span class="flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                        </svg>
+                        <a href="/popes/{{ $documentData.pope_id }}" class="text-accent hover:underline">
+                            {{ title $documentData.pope_id }}
+                        </a>
+                    </span>
+                    {{ else if .Params.pope }}
+                    <span class="flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                        </svg>
+                        {{ .Params.pope }}
+                    </span>
+                    {{ end }}
+                </div>
+                
+                <!-- Language Selection for Document -->
+                {{ if and $documentData $documentData.metadata $documentData.metadata.raw_html }}
+                <div class="mt-6">
+                    <label class="block text-sm font-medium text-text-primary mb-2">Available Languages:</label>
+                    <div class="flex flex-wrap gap-2">
+                        {{ range $lang, $html := $documentData.metadata.raw_html }}
+                        <button onclick="switchDocumentLanguage('{{ $lang }}')" 
+                                class="document-lang-btn px-3 py-1 text-xs rounded-lg border border-border-light hover:border-accent/20 transition-colors"
+                                data-lang="{{ $lang }}">
+                            {{ upper $lang }}
+                        </button>
+                        {{ end }}
+                    </div>
+                </div>
+                {{ end }}
+            </header>
+
+            <!-- Document Content -->
+            <div class="document-content">
+                {{ if and $documentData $documentData.metadata $documentData.metadata.raw_html }}
+                <!-- Render raw HTML content from API -->
+                {{ range $lang, $html := $documentData.metadata.raw_html }}
+                <div class="document-lang-content prose prose-lg max-w-none hidden" data-lang="{{ $lang }}">
+                    {{ $html | safeHTML }}
+                </div>
+                {{ end }}
+                {{ else }}
+                <!-- Fallback to markdown content -->
+                <div class="prose prose-lg max-w-none">
+                    {{ .Content }}
+                </div>
+                {{ end }}
+            </div>
+
+            <!-- Document Actions -->
+            <div class="mt-12 pt-8 border-t border-border-light">
+                <div class="flex flex-wrap items-center justify-between gap-4">
+                    <div class="flex items-center space-x-4">
+                        {{ if and $documentData $documentData.metadata $documentData.metadata.vatican_urls }}
+                        <a href="{{ index $documentData.metadata.vatican_urls "en" }}" 
+                           target="_blank" 
+                           class="inline-flex items-center px-4 py-2 text-sm font-medium text-accent border border-accent/20 rounded-lg hover:bg-accent/5 transition-colors">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                            </svg>
+                            View on Vatican.va
+                        </a>
+                        {{ end }}
+                        
+                        <button onclick="window.print()" 
+                                class="inline-flex items-center px-4 py-2 text-sm font-medium text-text-secondary border border-border-light rounded-lg hover:border-accent/20 transition-colors">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                            </svg>
+                            Print
+                        </button>
+                    </div>
+                    
+                    <div class="flex items-center space-x-2 text-sm text-text-light">
+                        <span>Share:</span>
+                        <button onclick="shareDocument()" 
+                                class="p-2 rounded-lg hover:bg-slate-100 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </article>
+
+        <!-- Related Documents -->
+        <div class="bg-white rounded-2xl p-8">
+            <h3 class="text-xl font-bold text-text-primary mb-6">More from this Pope</h3>
+            <div class="grid gap-4">
+                <!-- Placeholder for related documents -->
+                <p class="text-text-light">Related documents will be loaded here...</p>
+            </div>
+        </div>
+    </div>
 </div>
+
+<script>
+// Document language switching
+function switchDocumentLanguage(lang) {
+    // Hide all language content
+    document.querySelectorAll('.document-lang-content').forEach(el => {
+        el.classList.add('hidden');
+    });
+    
+    // Show selected language content
+    const selectedContent = document.querySelector(`[data-lang="${lang}"]`);
+    if (selectedContent) {
+        selectedContent.classList.remove('hidden');
+    }
+    
+    // Update button states
+    document.querySelectorAll('.document-lang-btn').forEach(btn => {
+        btn.classList.remove('border-accent', 'bg-accent/5', 'text-accent');
+        btn.classList.add('border-border-light', 'text-text-secondary');
+    });
+    
+    const selectedBtn = document.querySelector(`.document-lang-btn[data-lang="${lang}"]`);
+    if (selectedBtn) {
+        selectedBtn.classList.remove('border-border-light', 'text-text-secondary');
+        selectedBtn.classList.add('border-accent', 'bg-accent/5', 'text-accent');
+    }
+}
+
+// Share function
+function shareDocument() {
+    if (navigator.share) {
+        navigator.share({
+            title: document.title,
+            url: window.location.href
+        });
+    } else {
+        // Fallback: copy to clipboard
+        navigator.clipboard.writeText(window.location.href);
+        alert('Link copied to clipboard!');
+    }
+}
+
+// Initialize first language on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const firstLangBtn = document.querySelector('.document-lang-btn');
+    if (firstLangBtn) {
+        const firstLang = firstLangBtn.getAttribute('data-lang');
+        switchDocumentLanguage(firstLang);
+    }
+});
+</script>
+
+<style>
+.prose {
+    line-height: 1.7;
+}
+
+.prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
+    color: #1f2937;
+    font-weight: 600;
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+}
+
+.prose p {
+    margin-bottom: 1.25rem;
+}
+
+.prose blockquote {
+    border-left: 4px solid #f59e0b;
+    padding-left: 1rem;
+    font-style: italic;
+    background: #fef3c7;
+    padding: 1rem;
+    border-radius: 0.5rem;
+}
+
+@media print {
+    .bg-white, .backdrop-blur-sm, .border-b {
+        background: white !important;
+        backdrop-filter: none !important;
+        border: none !important;
+    }
+    
+    header, .document-actions {
+        display: none !important;
+    }
+}
+</style>
 {{ end }}
 
 {{ define "footer" }}
@@ -68,7 +286,7 @@
     <div class="container mx-auto px-4 py-8">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div>
-                <h3 class="text-xl font-serif font-bold mb-4">PopeFeed</h3>
+                <h3 class="text-xl font-serif font-bold mb-4">Pope Feed</h3>
                 <p class="text-gray-300">A modern platform for accessing Vatican documents and papal teachings.</p>
             </div>
             <div>
@@ -96,7 +314,7 @@
             </div>
         </div>
         <div class="border-t border-white/10 mt-8 pt-8 text-center text-gray-300">
-            <p>&copy; 2024 PopeFeed. Built with reverence for the Holy See.</p>
+            <p>&copy; 2025 Pope Feed. Built with reverence for the Holy See.</p>
         </div>
     </div>
 </footer>

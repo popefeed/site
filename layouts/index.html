@@ -1,9 +1,30 @@
 {{ define "main" }}
+{{ $useRemoteData := .Site.Params.use_remote_data | default false }}
+{{ $postsData := dict }}
+{{ $postsIndex := dict }}
+
+{{ if $useRemoteData }}
+  <!-- Fetch remote data during build -->
+  {{ $postsIndexResult := try (resources.GetRemote .Site.Params.remote_data.posts_index_url) }}
+  {{ if $postsIndexResult.Value }}
+    {{ $postsIndex = $postsIndexResult.Value | transform.Unmarshal }}
+  {{ else }}
+    {{ warnf "Failed to fetch posts index from: %s" .Site.Params.remote_data.posts_index_url }}
+  {{ end }}
+  
+  {{ $postsPage1Result := try (resources.GetRemote (printf "%s1.json" .Site.Params.remote_data.posts_page_url)) }}
+  {{ if $postsPage1Result.Value }}
+    {{ $postsData = $postsPage1Result.Value | transform.Unmarshal }}
+  {{ else }}
+    {{ warnf "Failed to fetch posts page 1 from: %s" (printf "%s1.json" .Site.Params.remote_data.posts_page_url) }}
+  {{ end }}
+{{ end }}
+
 <div class="min-h-screen bg-bg-minimal">
     <!-- Minimal Header -->
     <header class="bg-white/80 backdrop-blur-sm border-b border-border-light sticky top-0 z-10">
         <div class="max-w-2xl mx-auto px-6 py-6">
-            <h1 class="text-2xl font-medium text-text-primary tracking-tight">PopeFeed</h1>
+            <h1 class="text-2xl font-medium text-text-primary tracking-tight">{{ .Site.Params.site_title | default "Pope Feed" }}</h1>
         </div>
     </header>
 
@@ -12,7 +33,84 @@
         <!-- Spacer -->
         <div class="pt-12"></div>
         
-        <!-- Dynamic Posts Container -->
+        {{ if and $useRemoteData $postsData.posts }}
+        <!-- Server-side rendered posts -->
+        <div id="posts-feed" class="space-y-6">
+            {{ range $postsData.posts }}
+            <article class="post-card bg-white rounded-2xl p-6 lg:p-8 mb-6 shadow-sm hover:shadow-md transition-shadow">
+                <div class="flex flex-col sm:flex-row sm:items-start sm:space-x-6">
+                    <div class="flex-shrink-0 mb-4 sm:mb-0">
+                        <img src="{{ .pope.avatar }}" alt="{{ .pope.name }}" class="w-12 h-12 sm:w-14 sm:h-14 rounded-full ring-2 ring-border-light mx-auto sm:mx-0" loading="lazy">
+                    </div>
+                    <div class="flex-1 min-w-0 text-center sm:text-left">
+                        <div class="flex flex-col sm:flex-row sm:items-baseline sm:space-x-3 mb-4">
+                            <h3 class="font-semibold text-text-primary text-lg mb-1 sm:mb-0">{{ .pope.name }}</h3>
+                            <div class="flex items-center justify-center sm:justify-start space-x-2 text-text-light text-sm">
+                                <span>@{{ .pope.handle }}</span>
+                                <span class="hidden sm:inline">·</span>
+                                <time>{{ .document.date }}</time>
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-4">
+                            <h4 class="font-medium text-text-primary text-xl leading-relaxed">
+                                <a href="/documents/{{ .document.id }}" class="hover:text-accent transition-colors">
+                                    {{ .document.title }}
+                                </a>
+                            </h4>
+                            <p class="text-text-secondary text-base leading-relaxed line-clamp-3">{{ .document.excerpt }}</p>
+                            
+                            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-4">
+                                <div class="flex flex-wrap items-center justify-center sm:justify-start gap-3">
+                                    <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-slate-50 text-text-secondary border border-border-light">
+                                        {{ .document.type }}
+                                    </span>
+                                    <span class="text-text-light text-sm">
+                                        {{ .document.language_count }} languages
+                                    </span>
+                                </div>
+                                
+                                <div class="flex items-center justify-center sm:justify-end space-x-2">
+                                    {{ if .document.vatican_url }}
+                                    <a href="{{ .document.vatican_url }}" 
+                                       target="_blank"
+                                       class="inline-flex items-center text-text-light hover:text-accent font-medium text-sm px-3 py-2 rounded-lg border border-transparent hover:border-accent/20 transition-colors">
+                                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                                        </svg>
+                                        Vatican
+                                    </a>
+                                    {{ end }}
+                                    
+                                    <a href="/documents/{{ .document.id }}" 
+                                       class="inline-flex items-center text-accent font-medium text-sm px-4 py-2 rounded-lg border border-transparent hover:border-accent/20 transition-colors">
+                                        <span>Read</span>
+                                        <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                        </svg>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </article>
+            {{ end }}
+        </div>
+        
+        <!-- Load More Section (for additional pages) -->
+        {{ if and $postsIndex.meta $postsIndex.meta.total_pages }}
+        {{ if gt $postsIndex.meta.total_pages 1 }}
+        <div class="py-16 text-center">
+            <button id="load-more-btn" class="minimal-button inline-flex items-center px-8 py-4 text-accent font-medium rounded-xl border border-border-light hover:border-accent/20 focus:outline-none focus:ring-2 focus:ring-accent/20">
+                <span>Load more posts</span>
+            </button>
+        </div>
+        {{ end }}
+        {{ end }}
+        
+        {{ else }}
+        <!-- Fallback to client-side loading -->
         <div id="posts-feed" class="space-y-8">
             <!-- Initial Loading State -->
             <div class="py-24 text-center">
@@ -20,18 +118,19 @@
                 <p class="text-text-secondary font-medium">Loading posts...</p>
             </div>
         </div>
-
-        <!-- Loading More Indicator -->
-        <div id="loading-indicator" class="py-12 text-center" style="display: none;">
-            <div class="inline-block w-6 h-6 border-2 border-text-light border-t-accent rounded-full animate-spin mb-4"></div>
-            <p class="text-text-secondary text-sm">Loading more...</p>
-        </div>
-
+        
         <!-- Load More Section -->
         <div class="py-16 text-center">
             <button id="load-more-btn" class="minimal-button inline-flex items-center px-8 py-4 text-accent font-medium rounded-xl border border-border-light hover:border-accent/20 focus:outline-none focus:ring-2 focus:ring-accent/20" style="display: none;">
                 <span>Load more posts</span>
             </button>
+        </div>
+        {{ end }}
+
+        <!-- Loading More Indicator -->
+        <div id="loading-indicator" class="py-12 text-center" style="display: none;">
+            <div class="inline-block w-6 h-6 border-2 border-text-light border-t-accent rounded-full animate-spin mb-4"></div>
+            <p class="text-text-secondary text-sm">Loading more...</p>
         </div>
 
         <!-- Error State -->
@@ -44,4 +143,95 @@
         <div class="pb-24"></div>
     </div>
 </div>
+
+<!-- Pass data to JavaScript for progressive enhancement -->
+<script>
+    window.PopeFeedConfig = {
+        useRemoteData: {{ $useRemoteData }},
+        apiBaseUrl: '{{ .Site.Params.apiBaseURL }}',
+        {{ if and $useRemoteData $postsIndex.meta }}
+        initialPageLoaded: true,
+        totalPages: {{ $postsIndex.meta.total_pages | default 1 }},
+        totalPosts: {{ $postsIndex.meta.total_posts | default 0 }},
+        currentPage: 1
+        {{ else }}
+        initialPageLoaded: false,
+        totalPages: 1,
+        totalPosts: 0,
+        currentPage: 0
+        {{ end }}
+    };
+</script>
+
+<style>
+/* Responsive design improvements */
+.line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Mobile-first responsive breakpoints */
+@media (max-width: 640px) {
+    .max-w-2xl {
+        max-width: 100%;
+    }
+    
+    .px-6 {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+    
+    .post-card {
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .post-card h4 {
+        font-size: 1.125rem;
+        line-height: 1.5;
+    }
+    
+    .post-card p {
+        font-size: 0.875rem;
+    }
+}
+
+@media (min-width: 641px) and (max-width: 768px) {
+    .post-card {
+        padding: 1.5rem;
+    }
+}
+
+@media (min-width: 1024px) {
+    .max-w-2xl {
+        max-width: 42rem;
+    }
+}
+
+/* Enhanced hover effects */
+.post-card:hover {
+    transform: translateY(-2px);
+    transition: all 0.2s ease-in-out;
+}
+
+/* Focus states for accessibility */
+.post-card a:focus,
+button:focus {
+    outline: 2px solid rgb(59 130 246);
+    outline-offset: 2px;
+}
+
+/* Better typography scaling */
+@media (min-width: 1280px) {
+    .post-card h4 {
+        font-size: 1.25rem;
+    }
+    
+    .post-card p {
+        font-size: 1rem;
+    }
+}
+</style>
 {{ end }}

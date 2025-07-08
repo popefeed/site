@@ -1,9 +1,34 @@
 baseURL = 'https://popefeed.com/'
 defaultContentLanguage = 'en'
-title = 'PopeFeed'
+title = 'Pope Feed'
 
 [params]
+  # Site Configuration
+  site_title = "Pope Feed"
+  site_description = "Vatican Documents in a Social Feed"
+  posts_per_page = 50
+
+  # Development environment (default)
   apiBaseURL = 'http://localhost:8000'
+  use_remote_data = true
+
+  [params.remote_data]
+    popes_url = "http://localhost:8000/popes.json"
+    posts_index_url = "http://localhost:8000/posts/index.json"
+    posts_page_url = "http://localhost:8000/posts/page="
+    feed_base_url = "http://localhost:8000/feed/"
+
+# Production environment
+[production]
+  [production.params]
+    apiBaseURL = 'https://api.popefeed.com'
+    use_remote_data = true
+ 
+    [production.params.remote_data]
+      popes_url = "https://api.popefeed.com/popes.json"
+      posts_index_url = "https://api.popefeed.com/posts/index.json"
+      posts_page_url = "https://api.popefeed.com/posts/page="
+      feed_base_url = "https://api.popefeed.com/feed/"
 
 [markup]
   [markup.goldmark]
